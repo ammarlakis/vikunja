@@ -63,6 +63,7 @@ type VikunjaInfos struct {
 type AuthInfo struct {
 	Local         LocalAuthInfo  `json:"local"`
 	Ldap          LdapAuthInfo   `json:"ldap"`
+	Header        LocalAuthInfo `json:"header"`
 	OpenIDConnect OpenIDAuthInfo `json:"openid_connect"`
 }
 
@@ -129,6 +130,10 @@ func BuildInfo() VikunjaInfos {
 			},
 			Ldap: LdapAuthInfo{
 				Enabled: config.AuthLdapEnabled.GetBool(),
+			},
+			Header: LocalAuthInfo{
+				Enabled: config.AuthHeaderEnabled.GetBool(),
+				RegistrationEnabled: config.AuthHeaderEnabled.GetBool() && config.AuthHeaderCreateUser.GetBool(),
 			},
 			OpenIDConnect: OpenIDAuthInfo{
 				Enabled: config.AuthOpenIDEnabled.GetBool(),

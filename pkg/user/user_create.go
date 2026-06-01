@@ -29,8 +29,9 @@ import (
 )
 
 const (
-	IssuerLocal = `local`
-	IssuerLDAP  = `ldap`
+	IssuerLocal  = `local`
+	IssuerLDAP   = `ldap`
+	IssuerHeader = `header`
 )
 
 type CreateUserOptions struct {

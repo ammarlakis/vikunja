@@ -62,6 +62,7 @@ import (
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/auth"
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 	"code.vikunja.io/api/pkg/modules/auth/oauth2server"
 	"code.vikunja.io/api/pkg/modules/auth/openid"
 	"code.vikunja.io/api/pkg/modules/background"
@@ -315,7 +316,8 @@ var unauthenticatedAPIPaths = map[string]bool{
 	"/api/v1/user/password/reset":            true,
 	"/api/v1/user/confirm":                   true,
 	"/api/v1/login":                          true,
-	auth.RefreshTokenPathV1:                  true,
+	auth.RefreshTokenPathV1: true,
+	"/api/v1/auth/header": true,
 	"/api/v1/auth/openid/:provider/callback": true,
 	"/api/v1/test/:table":                    true,
 	"/api/v1/info":                           true,
@@ -536,6 +538,10 @@ func registerAPIRoutes(a *echo.Group, noAuthRateLimit, refreshRateLimit echo.Mid
 
 	if config.AuthLocalEnabled.GetBool() || config.AuthLdapEnabled.GetBool() {
 		ur.POST("/login", apiv1.Login)
+	}
+
+	if config.AuthHeaderEnabled.GetBool() {
+		ur.POST("/auth/header", headerauth.HandleAuth)
 	}
 
 	if config.AuthOpenIDEnabled.GetBool() {
