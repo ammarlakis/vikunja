@@ -81,6 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
 	const lastUserInfoRefresh = ref<Date | null>(null)
 	const isLoading = ref(false)
 	const isLoadingGeneralSettings = ref(false)
+	const headerAuthAttempted = ref(false)
 
 	const authUser = computed(() => {
 		return authenticated.value && (
@@ -268,6 +269,25 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 	}
 
+	async function headerAuth() {
+		if (headerAuthAttempted.value || !configStore.auth.header.enabled) {
+			return false
+		}
+
+		headerAuthAttempted.value = true
+		const HTTP = HTTPFactory()
+		removeToken()
+
+		try {
+			const response = await HTTP.post('/auth/header')
+			saveToken(response.data.token, true)
+			setLoggedInVia('header')
+			return true
+		} catch {
+			return false
+		}
+	}
+
 	async function handleDesktopOAuthTokens(tokens: {access_token: string, refresh_token: string, expires_in: number}) {
 		setIsLoading(true)
 		try {
@@ -308,7 +328,10 @@ export const useAuthStore = defineStore('auth', () => {
 			return
 		}
 
-		const jwt = getToken()
+		let jwt = getToken()
+		if (!jwt && await headerAuth()) {
+			jwt = getToken()
+		}
 		let isAuthenticated = false
 		let jwtUserType: number | undefined
 		if (jwt) {
@@ -588,6 +611,7 @@ export const useAuthStore = defineStore('auth', () => {
 		login,
 		register,
 		openIdAuth,
+		headerAuth,
 		handleDesktopOAuthTokens,
 		linkShareAuth,
 		checkAuth,

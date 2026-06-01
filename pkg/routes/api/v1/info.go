@@ -62,6 +62,7 @@ type vikunjaInfos struct {
 type authInfo struct {
 	Local         localAuthInfo  `json:"local"`
 	Ldap          ldapAuthInfo   `json:"ldap"`
+	Header        headerAuthInfo `json:"header"`
 	OpenIDConnect openIDAuthInfo `json:"openid_connect"`
 }
 
@@ -72,6 +73,11 @@ type localAuthInfo struct {
 
 type ldapAuthInfo struct {
 	Enabled bool `json:"enabled"`
+}
+
+type headerAuthInfo struct {
+	Enabled             bool `json:"enabled"`
+	RegistrationEnabled bool `json:"registration_enabled"`
 }
 
 type openIDAuthInfo struct {
@@ -127,6 +133,10 @@ func Info(c *echo.Context) error {
 			},
 			Ldap: ldapAuthInfo{
 				Enabled: config.AuthLdapEnabled.GetBool(),
+			},
+			Header: headerAuthInfo{
+				Enabled:             config.AuthHeaderEnabled.GetBool(),
+				RegistrationEnabled: config.AuthHeaderEnabled.GetBool() && config.AuthHeaderCreateUser.GetBool(),
 			},
 			OpenIDConnect: openIDAuthInfo{
 				Enabled: config.AuthOpenIDEnabled.GetBool(),
