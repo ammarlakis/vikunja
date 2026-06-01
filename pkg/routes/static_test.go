@@ -38,6 +38,7 @@ func TestServeIndexFileKeepsAPIURLRelative(t *testing.T) {
 		scriptConfigString = ""
 		scriptConfigStringLock.Unlock()
 		config.ServicePublicURL.Set("")
+		config.ServiceFrontendAPIURL.Set("")
 	})
 
 	config.ServicePublicURL.Set("https://tasks.example.com/")
@@ -58,4 +59,35 @@ func TestServeIndexFileKeepsAPIURLRelative(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, rec.Body.String(), "window.API_URL = '/api/v1'")
 	require.NotContains(t, rec.Body.String(), "https://tasks.example.com/api/v1")
+}
+
+func TestServeIndexFileUsesFrontendAPIURLOverride(t *testing.T) {
+	scriptConfigStringLock.Lock()
+	scriptConfigString = ""
+	scriptConfigStringLock.Unlock()
+	t.Cleanup(func() {
+		scriptConfigStringLock.Lock()
+		scriptConfigString = ""
+		scriptConfigStringLock.Unlock()
+		config.ServiceFrontendAPIURL.Set("")
+	})
+
+	config.ServiceFrontendAPIURL.Set("https://api.example.com/api/v1/")
+
+	assetFs := http.FS(fstest.MapFS{
+		"dist/index.html": &fstest.MapFile{
+			Mode: fs.ModePerm,
+			Data: []byte(`<div id="app"></div><script>window.API_URL = '/api/v1'</script>`),
+		},
+	})
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := serveIndexFile(c, assetFs)
+	require.NoError(t, err)
+	require.Contains(t, rec.Body.String(), "window.API_URL = 'https://api.example.com/api/v1'")
+	require.NotContains(t, rec.Body.String(), "window.API_URL = '/api/v1'")
 }

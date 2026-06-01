@@ -46,7 +46,12 @@
                 {
                     "key": "publicurl",
                     "default_value": "",
-                    "comment": "The public facing URL where your users can reach Vikunja. Used in emails and for the communication between api and frontend. The url must be a valid http or https url. This setting is required when cors.enable is true."
+                    "comment": "The public facing URL where your users can reach Vikunja. Used in emails and other server-generated external links. The url must be a valid http or https url. This setting is required when cors.enable is true."
+                },
+                {
+                    "key": "frontendapiurl",
+                    "default_value": "",
+                    "comment": "The API URL injected into the bundled frontend. Leave empty to use the same origin as the frontend with `/api/v1`. Set this only when the bundled frontend should call an API on a different origin, for example `https://api.example.com/api/v1`."
                 },
                 {
                     "key": "rootpath",
