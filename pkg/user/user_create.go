@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	IssuerLocal = `local`
-	IssuerLDAP  = `ldap`
+	IssuerLocal  = `local`
+	IssuerLDAP   = `ldap`
+	IssuerHeader = `header`
 )
 
 // CreateUser creates a new user and inserts it into the database

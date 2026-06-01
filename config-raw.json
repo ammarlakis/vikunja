@@ -791,6 +791,37 @@
                     ]
                 },
                 {
+                    "key": "header",
+                    "comment": "Header authentication lets Vikunja trust a reverse proxy which has already authenticated the user. Only enable this when Vikunja is not directly reachable without that proxy, because anyone who can send these headers can sign in as that user.",
+                    "children": [
+                        {
+                            "key": "enabled",
+                            "default_value": "false",
+                            "comment": "Enable or disable header authentication."
+                        },
+                        {
+                            "key": "createuser",
+                            "default_value": "true",
+                            "comment": "Automatically create a Vikunja user when a trusted header user signs in for the first time. The username header is mandatory. The email header is required for creating a new user unless the username header itself contains a valid email address."
+                        },
+                        {
+                            "key": "usernameheader",
+                            "default_value": "X-Forwarded-User",
+                            "comment": "The trusted request header containing the authenticated username or stable user identifier."
+                        },
+                        {
+                            "key": "emailheader",
+                            "default_value": "X-Forwarded-Email",
+                            "comment": "The trusted request header containing the authenticated user's email address. This is used when creating users and to keep existing header-auth users in sync."
+                        },
+                        {
+                            "key": "nameheader",
+                            "default_value": "X-Forwarded-Name",
+                            "comment": "The trusted request header containing the authenticated user's display name. This is optional."
+                        }
+                    ]
+                },
+                {
                     "key": "ldap",
                     "comment": "Authentication via an external LDAP server.",
                     "children": [

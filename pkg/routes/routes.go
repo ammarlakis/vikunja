@@ -62,6 +62,7 @@ import (
 	"code.vikunja.io/api/pkg/license"
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 	"code.vikunja.io/api/pkg/modules/auth/oauth2server"
 	"code.vikunja.io/api/pkg/modules/auth/openid"
 	"code.vikunja.io/api/pkg/modules/background"
@@ -325,6 +326,7 @@ var unauthenticatedAPIPaths = map[string]bool{
 	"/api/v1/user/password/reset":            true,
 	"/api/v1/user/confirm":                   true,
 	"/api/v1/login":                          true,
+	"/api/v1/auth/header":                    true,
 	"/api/v1/user/token/refresh":             true,
 	"/api/v1/auth/openid/:provider/callback": true,
 	"/api/v1/test/:table":                    true,
@@ -443,6 +445,10 @@ func registerAPIRoutes(a *echo.Group) {
 
 	if config.AuthLocalEnabled.GetBool() || config.AuthLdapEnabled.GetBool() {
 		ur.POST("/login", apiv1.Login)
+	}
+
+	if config.AuthHeaderEnabled.GetBool() {
+		ur.POST("/auth/header", headerauth.HandleAuth)
 	}
 
 	// Refresh token endpoint — unauthenticated because it uses the refresh
