@@ -378,6 +378,25 @@ func noStoreCacheControl() echo.MiddlewareFunc {
 	}
 }
 
+const v2AdminPathPrefix = "/api/v2/admin"
+
+// gateV2AdminRoutes reuses v1's RequireFeature/RequireInstanceAdmin gate (both
+// 404-on-failure) as path-scoped middleware: splitting v2 into a gated Echo
+// sub-group would split the Huma API and drop admin ops from the OpenAPI spec.
+func gateV2AdminRoutes() echo.MiddlewareFunc {
+	feature := RequireFeature(license.FeatureAdminPanel)
+	admin := RequireInstanceAdmin()
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		gated := feature(admin(next))
+		return func(c *echo.Context) error {
+			if strings.HasPrefix(c.Request().URL.Path, v2AdminPathPrefix) {
+				return gated(c)
+			}
+			return next(c)
+		}
+	}
+}
+
 // registerAPIRoutesV2 wires the /api/v2 Echo group. Token middleware is
 // attached before any route so Huma's spec and Scalar docs share the
 // resource handlers' stack; unauthenticatedAPIPaths keeps them public.
@@ -388,6 +407,9 @@ func registerAPIRoutesV2(e *echo.Echo, a *echo.Group) {
 	// apply to v2 resource endpoints too.
 	setupRateLimit(a, config.RateLimitKind.GetString())
 	setupMetricsMiddleware(a)
+	// Must come after rate limiting: the gate does a per-request admin DB read,
+	// so an unauthenticated flood to /api/v2/admin/* would otherwise be unbounded.
+	a.Use(gateV2AdminRoutes())
 
 	api := apiv2.NewAPI(e, a)
 
@@ -395,12 +417,8 @@ func registerAPIRoutesV2(e *echo.Echo, a *echo.Group) {
 	a.GET("/docs", apiv2.ScalarUI)
 	a.GET("/docs/scalar.standalone.js", apiv2.ScalarJS)
 
-	// Resource registrations.
-	apiv2.RegisterLabelRoutes(api)
-
-	// AutoPatch must run AFTER all GET/PUT pairs are registered so it can
-	// synthesize their PATCH counterparts.
-	apiv2.EnableAutoPatch(api)
+	// Resources self-register via init(); RegisterAll runs them all + AutoPatch.
+	apiv2.RegisterAll(api)
 }
 
 func registerAPIRoutes(a *echo.Group) {
