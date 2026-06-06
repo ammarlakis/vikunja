@@ -50,7 +50,6 @@ const (
 	ServiceUnixSocket                     Key = `service.unixsocket`
 	ServiceUnixSocketMode                 Key = `service.unixsocketmode`
 	ServicePublicURL                      Key = `service.publicurl`
-	ServiceFrontendAPIURL                 Key = `service.frontendapiurl`
 	ServiceEnableCaldav                   Key = `service.enablecaldav`
 	ServiceRootpath                       Key = `service.rootpath`
 	ServiceMaxItemsPerPage                Key = `service.maxitemsperpage`
