@@ -24,11 +24,9 @@ declare global {
 	}
 }
 
-// Check if we have an api url in local storage and use it if the bundled
-// frontend did not provide one. This prevents stale values from another host
-// from overriding the same-origin default and causing CORS failures.
+// Check if we have an api url in local storage and use it if that's the case
 const apiUrlFromStorage = localStorage.getItem('API_URL')
-if (apiUrlFromStorage !== null && window.API_URL === '') {
+if (apiUrlFromStorage !== null) {
 	window.API_URL = apiUrlFromStorage
 }
 
