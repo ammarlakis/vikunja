@@ -39,6 +39,8 @@ func TestHeaderAuth(t *testing.T) {
 	config.AuthHeaderUsernameHeader.Set("X-Auth-User")
 	config.AuthHeaderEmailHeader.Set("X-Auth-Email")
 	config.AuthHeaderNameHeader.Set("X-Auth-Name")
+	config.AuthHeaderFirstNameHeader.Set("X-Auth-First-Name")
+	config.AuthHeaderLastNameHeader.Set("X-Auth-Last-Name")
 
 	t.Run("creates user from headers", func(t *testing.T) {
 		c, rec := createRequest(e, http.MethodPost, "", nil, nil)
@@ -61,6 +63,24 @@ func TestHeaderAuth(t *testing.T) {
 		assert.Equal(t, user.IssuerLocal, u.Issuer)
 		assert.Empty(t, u.Subject)
 		assert.NotEmpty(t, u.Password)
+	})
+
+	t.Run("creates user with first and last name headers", func(t *testing.T) {
+		c, rec := createRequest(e, http.MethodPost, "", nil, nil)
+		c.Request().Header.Set("X-Auth-User", "header-name-parts")
+		c.Request().Header.Set("X-Auth-Email", "header-name-parts@example.com")
+		c.Request().Header.Set("X-Auth-First-Name", "Header")
+		c.Request().Header.Set("X-Auth-Last-Name", "Parts")
+
+		err := headerauth.HandleAuth(c)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		s := db.NewSession()
+		defer s.Close()
+		u, err := user.GetUserWithEmail(s, &user.User{Username: "header-name-parts"})
+		require.NoError(t, err)
+		assert.Equal(t, "Header Parts", u.Name)
 	})
 
 	t.Run("signs in created user", func(t *testing.T) {

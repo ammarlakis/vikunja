@@ -817,7 +817,17 @@
                         {
                             "key": "nameheader",
                             "default_value": "X-Forwarded-Name",
-                            "comment": "The trusted request header containing the authenticated user's display name. This is optional."
+                            "comment": "The trusted request header containing the authenticated user's display name. This is optional and takes precedence over firstnameheader and lastnameheader."
+                        },
+                        {
+                            "key": "firstnameheader",
+                            "default_value": "",
+                            "comment": "The trusted request header containing the authenticated user's first name. This is optional and only used when nameheader is empty."
+                        },
+                        {
+                            "key": "lastnameheader",
+                            "default_value": "",
+                            "comment": "The trusted request header containing the authenticated user's last name. This is optional and only used when nameheader is empty."
                         }
                     ]
                 },

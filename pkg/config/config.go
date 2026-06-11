@@ -83,11 +83,13 @@ const (
 	AuthOpenIDEnabled   Key = `auth.openid.enabled`
 	AuthOpenIDProviders Key = `auth.openid.providers`
 
-	AuthHeaderEnabled        Key = `auth.header.enabled`
-	AuthHeaderCreateUser     Key = `auth.header.createuser`
-	AuthHeaderUsernameHeader Key = `auth.header.usernameheader`
-	AuthHeaderEmailHeader    Key = `auth.header.emailheader`
-	AuthHeaderNameHeader     Key = `auth.header.nameheader`
+	AuthHeaderEnabled         Key = `auth.header.enabled`
+	AuthHeaderCreateUser      Key = `auth.header.createuser`
+	AuthHeaderUsernameHeader  Key = `auth.header.usernameheader`
+	AuthHeaderEmailHeader     Key = `auth.header.emailheader`
+	AuthHeaderNameHeader      Key = `auth.header.nameheader`
+	AuthHeaderFirstNameHeader Key = `auth.header.firstnameheader`
+	AuthHeaderLastNameHeader  Key = `auth.header.lastnameheader`
 
 	AuthLdapEnabled    Key = `auth.ldap.enabled`
 	AuthLdapHost       Key = `auth.ldap.host`
@@ -387,6 +389,8 @@ func InitDefaultConfig() {
 	AuthHeaderUsernameHeader.setDefault("X-Forwarded-User")
 	AuthHeaderEmailHeader.setDefault("X-Forwarded-Email")
 	AuthHeaderNameHeader.setDefault("X-Forwarded-Name")
+	AuthHeaderFirstNameHeader.setDefault("")
+	AuthHeaderLastNameHeader.setDefault("")
 
 	AuthLdapEnabled.setDefault(false)
 	AuthLdapHost.setDefault("localhost")

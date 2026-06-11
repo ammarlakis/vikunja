@@ -44,7 +44,7 @@ func HandleAuth(c *echo.Context) error {
 	}
 
 	email := strings.TrimSpace(c.Request().Header.Get(config.AuthHeaderEmailHeader.GetString()))
-	name := strings.TrimSpace(c.Request().Header.Get(config.AuthHeaderNameHeader.GetString()))
+	name := getName(c)
 
 	s := db.NewSession()
 	defer s.Close()
@@ -132,4 +132,15 @@ func getOrCreateUser(s *xorm.Session, username, email, name string) (*user.User,
 func looksLikeEmail(value string) bool {
 	_, err := mail.ParseAddress(value)
 	return err == nil
+}
+
+func getName(c *echo.Context) string {
+	name := strings.TrimSpace(c.Request().Header.Get(config.AuthHeaderNameHeader.GetString()))
+	if name != "" {
+		return name
+	}
+
+	firstName := strings.TrimSpace(c.Request().Header.Get(config.AuthHeaderFirstNameHeader.GetString()))
+	lastName := strings.TrimSpace(c.Request().Header.Get(config.AuthHeaderLastNameHeader.GetString()))
+	return strings.TrimSpace(firstName + " " + lastName)
 }
