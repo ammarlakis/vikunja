@@ -24,6 +24,7 @@ import (
 	"code.vikunja.io/api/pkg/events"
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/notifications"
+	"code.vikunja.io/api/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	"xorm.io/xorm"
 )
@@ -266,4 +267,13 @@ func checkIfUserExists(s *xorm.Session, user *User) (err error) {
 	}
 
 	return nil
+}
+
+// CreateUserWithRandomPassword creates a local account for an identity verified by a trusted gateway.
+func CreateUserWithRandomPassword(s *xorm.Session, u *User) (*User, error) {
+ password, err := utils.CryptoRandomString(64)
+ if err != nil { return nil, err }
+ u.Issuer = IssuerLocal
+ u.Password = password
+ return CreateUser(s, u, CreateUserOptions{SkipEmailConfirm: true})
 }

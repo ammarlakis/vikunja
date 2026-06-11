@@ -23,6 +23,7 @@ func init() {
 		"ConfirmEmail":                         reflect.ValueOf(user.ConfirmEmail),
 		"CreateBotUser":                        reflect.ValueOf(user.CreateBotUser),
 		"CreateUser":                           reflect.ValueOf(user.CreateUser),
+		"CreateUserWithRandomPassword":         reflect.ValueOf(user.CreateUserWithRandomPassword),
 		"DeleteCaldavTokenByID":                reflect.ValueOf(user.DeleteCaldavTokenByID),
 		"DisableTOTP":                          reflect.ValueOf(user.DisableTOTP),
 		"EmailUpdateMessage":                   reflect.ValueOf(user.EmailUpdateMessage),
