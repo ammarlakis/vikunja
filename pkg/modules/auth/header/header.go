@@ -23,6 +23,7 @@ import (
 
 	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/db"
+	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/auth"
 	"code.vikunja.io/api/pkg/user"
 
@@ -68,10 +69,12 @@ func HandleAuth(c *echo.Context) error {
 }
 
 func getOrCreateUser(s *xorm.Session, username, email, name string) (*user.User, error) {
-	u, err := user.GetUserWithEmail(s, &user.User{
-		Issuer:  user.IssuerHeader,
-		Subject: username,
-	})
+	username = strings.ReplaceAll(username, " ", "-")
+	if email == "" && looksLikeEmail(username) {
+		email = username
+	}
+
+	u, err := user.GetUserWithEmail(s, &user.User{Username: username})
 	if err != nil && !user.IsErrUserDoesNotExist(err) && !user.IsErrUserStatusError(err) {
 		return nil, err
 	}
@@ -80,44 +83,47 @@ func getOrCreateUser(s *xorm.Session, username, email, name string) (*user.User,
 		return u, nil
 	}
 
+	if err == nil {
+		if u.Issuer != user.IssuerLocal {
+			return nil, &user.ErrAccountIsNotLocal{UserID: u.ID}
+		}
+		if email == "" || u.Email != email {
+			return nil, echo.NewHTTPError(http.StatusForbidden, "Header auth user does not match an existing local user.")
+		}
+
+		if name != "" && u.Name != name {
+			u.Name = name
+			if _, err := s.
+				Where("id = ?", u.ID).
+				Cols("name").
+				Update(u); err != nil {
+				return nil, err
+			}
+		}
+
+		return u, nil
+	}
+
 	if user.IsErrUserDoesNotExist(err) {
 		if !config.AuthHeaderCreateUser.GetBool() {
 			return nil, echo.NewHTTPError(http.StatusForbidden, "Header auth user does not exist.")
 		}
 
-		if email == "" && looksLikeEmail(username) {
-			email = username
-		}
-
 		uu := &user.User{
-			Username: strings.ReplaceAll(username, " ", "-"),
+			Username: username,
 			Email:    email,
 			Name:     name,
 			Status:   user.StatusActive,
-			Issuer:   user.IssuerHeader,
-			Subject:  username,
 		}
 
-		return auth.CreateUserWithRandomUsername(s, uu)
-	}
-
-	needsUpdate := false
-	if email != "" && u.Email != email {
-		u.Email = email
-		needsUpdate = true
-	}
-	if name != "" && u.Name != name {
-		u.Name = name
-		needsUpdate = true
-	}
-
-	if needsUpdate {
-		if _, err := s.
-			Where("id = ?", u.ID).
-			Cols("email", "name").
-			Update(u); err != nil {
+		u, err = user.CreateUserWithRandomPassword(s, uu)
+		if err != nil {
 			return nil, err
 		}
+		if err := models.CreateNewProjectForUser(s, u); err != nil {
+			return nil, err
+		}
+		return u, nil
 	}
 
 	return u, nil

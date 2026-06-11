@@ -23,6 +23,7 @@ import (
 	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/events"
 	"code.vikunja.io/api/pkg/notifications"
+	"code.vikunja.io/api/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	"xorm.io/xorm"
 )
@@ -35,6 +36,27 @@ const (
 
 // CreateUser creates a new user and inserts it into the database
 func CreateUser(s *xorm.Session, user *User) (newUser *User, err error) {
+	return createUser(s, user, true)
+}
+
+// CreateUserWithRandomPassword creates a local user with a generated password.
+// It is intended for trusted upstream authentication mechanisms where Vikunja
+// does not receive the user's password, but the account should still behave
+// like a normal local account.
+func CreateUserWithRandomPassword(s *xorm.Session, user *User) (newUser *User, err error) {
+	password, err := utils.CryptoRandomString(64)
+	if err != nil {
+		return nil, err
+	}
+
+	user.Issuer = IssuerLocal
+	user.Subject = ""
+	user.Password = password
+
+	return createUser(s, user, false)
+}
+
+func createUser(s *xorm.Session, user *User, sendEmailConfirmation bool) (newUser *User, err error) {
 
 	if user.Issuer == "" {
 		user.Issuer = IssuerLocal
@@ -94,7 +116,7 @@ func CreateUser(s *xorm.Session, user *User) (newUser *User, err error) {
 	})
 
 	// Don't send a mail if no mailer is configured
-	if !config.MailerEnabled.GetBool() || user.Issuer != IssuerLocal {
+	if !sendEmailConfirmation || !config.MailerEnabled.GetBool() || user.Issuer != IssuerLocal {
 		return newUserOut, err
 	}
 

@@ -35,6 +35,7 @@ func TestHeaderAuth(t *testing.T) {
 	require.NoError(t, err)
 
 	config.AuthHeaderEnabled.Set(true)
+	config.AuthHeaderCreateUser.Set(true)
 	config.AuthHeaderUsernameHeader.Set("X-Auth-User")
 	config.AuthHeaderEmailHeader.Set("X-Auth-Email")
 	config.AuthHeaderNameHeader.Set("X-Auth-Name")
@@ -52,24 +53,48 @@ func TestHeaderAuth(t *testing.T) {
 
 		s := db.NewSession()
 		defer s.Close()
-		u, err := user.GetUserWithEmail(s, &user.User{
-			Issuer:  user.IssuerHeader,
-			Subject: "header-user",
-		})
+		u, err := user.GetUserWithEmail(s, &user.User{Username: "header-user"})
 		require.NoError(t, err)
 		assert.Equal(t, "header-user", u.Username)
 		assert.Equal(t, "header-user@example.com", u.Email)
 		assert.Equal(t, "Header User", u.Name)
+		assert.Equal(t, user.IssuerLocal, u.Issuer)
+		assert.Empty(t, u.Subject)
+		assert.NotEmpty(t, u.Password)
 	})
 
-	t.Run("signs in existing user without email header", func(t *testing.T) {
+	t.Run("signs in created user", func(t *testing.T) {
 		c, rec := createRequest(e, http.MethodPost, "", nil, nil)
 		c.Request().Header.Set("X-Auth-User", "header-user")
+		c.Request().Header.Set("X-Auth-Email", "header-user@example.com")
 
 		err := headerauth.HandleAuth(c)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Body.String(), "token")
+	})
+
+	t.Run("signs in existing local user when username and email match", func(t *testing.T) {
+		c, rec := createRequest(e, http.MethodPost, "", nil, nil)
+		c.Request().Header.Set("X-Auth-User", "user1")
+		c.Request().Header.Set("X-Auth-Email", "user1@example.com")
+
+		err := headerauth.HandleAuth(c)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "token")
+	})
+
+	t.Run("rejects existing local user when email does not match", func(t *testing.T) {
+		c, _ := createRequest(e, http.MethodPost, "", nil, nil)
+		c.Request().Header.Set("X-Auth-User", "user1")
+		c.Request().Header.Set("X-Auth-Email", "other@example.com")
+
+		err := headerauth.HandleAuth(c)
+		require.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusForbidden, httpErr.Code)
 	})
 
 	t.Run("requires configured username header", func(t *testing.T) {
