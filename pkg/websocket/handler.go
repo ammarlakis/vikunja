@@ -22,6 +22,7 @@ import (
 
 	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/log"
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 
 	"github.com/coder/websocket"
 	"github.com/labstack/echo/v5"
@@ -47,6 +48,14 @@ func UpgradeHandler(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "WebSocket hub not initialized")
 	}
 
+	var headerUserID int64
+	if headerauth.HasIdentity(c) {
+		u, err := headerauth.Authenticate(c)
+		if err != nil {
+			return err
+		}
+		headerUserID = u.ID
+	}
 	ws, err := websocket.Accept(c.Response(), c.Request(), &websocket.AcceptOptions{
 		OriginPatterns: config.CorsOrigins.GetStringSlice(),
 	})
@@ -56,6 +65,7 @@ func UpgradeHandler(c *echo.Context) error {
 	}
 
 	conn := NewConnection(ws, globalHub)
+	conn.headerUserID = headerUserID
 
 	ctx, cancel := context.WithCancel(context.Background())
 

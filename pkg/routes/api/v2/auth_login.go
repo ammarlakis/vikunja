@@ -18,10 +18,14 @@ package apiv2
 
 import (
 	"context"
+	"errors"
 	"net/http"
+
+	"github.com/labstack/echo/v5"
 
 	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/modules/auth"
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 	"code.vikunja.io/api/pkg/modules/humabridge"
 	"code.vikunja.io/api/pkg/routes/api/shared"
 	"code.vikunja.io/api/pkg/user"
@@ -57,8 +61,15 @@ func init() { AddRouteRegistrar(RegisterLoginRoutes) }
 // unconditional because it terminates any session, OIDC included.
 func RegisterLoginRoutes(api huma.API) {
 	tags := []string{"auth"}
+	if config.AuthHeaderEnabled.GetBool() {
+		Register(api, huma.Operation{
+			OperationID: "auth-header", Summary: "Trusted header login",
+			Description: "Creates a session for the immutable identity asserted by an explicitly trusted reverse proxy.",
+			Method:      http.MethodPost, Path: "/auth/header", DefaultStatus: http.StatusOK, Tags: tags, Security: publicSecurity,
+		}, authHeaderLogin)
+	}
 
-	if config.AuthLocalEnabled.GetBool() || config.AuthLdapEnabled.GetBool() {
+	if config.AuthLocalEnabled.GetBool() || config.AuthLdapEnabled.GetBool() || config.AuthHeaderEnabled.GetBool() {
 		Register(api, huma.Operation{
 			OperationID:   "auth-login",
 			Summary:       "Login",
@@ -83,9 +94,15 @@ func RegisterLoginRoutes(api huma.API) {
 }
 
 func authLogin(ctx context.Context, in *struct{ Body user.Login }) (*authTokenBody, error) {
-	u, err := shared.AuthenticateUserCredentials(ctx, &in.Body)
+	var u *user.User
+	var err error
+	if ec := humabridge.EchoContextFrom(ctx); ec != nil && headerauth.HasIdentity(ec) {
+		u, err = headerauth.Authenticate(ec)
+	} else {
+		u, err = shared.AuthenticateUserCredentials(ctx, &in.Body)
+	}
 	if err != nil {
-		return nil, translateDomainError(err)
+		return nil, translateHeaderError(err)
 	}
 
 	deviceInfo, ipAddress := requestClientInfo(ctx)
@@ -119,4 +136,32 @@ func authLogout(ctx context.Context, _ *struct{}) (*logoutBody, error) {
 	out.Body.Message = "Successfully logged out."
 	out.Body.OIDCLogoutURL = oidcLogoutURL
 	return out, nil
+}
+
+func authHeaderLogin(ctx context.Context, _ *struct{}) (*authTokenBody, error) {
+	ec := humabridge.EchoContextFrom(ctx)
+	if ec == nil {
+		return nil, huma.Error401Unauthorized("Missing request context")
+	}
+	u, err := headerauth.Authenticate(ec)
+	if err != nil {
+		return nil, translateHeaderError(err)
+	}
+	deviceInfo, ipAddress := requestClientInfo(ctx)
+	token, err := auth.IssueUserToken(ctx, u, deviceInfo, ipAddress, false, nil)
+	if err != nil {
+		return nil, translateDomainError(err)
+	}
+	auth.WriteUserAuthCookies(ec, token)
+	out := &authTokenBody{CacheControl: "no-store"}
+	out.Body.Token = token.AccessToken
+	return out, nil
+}
+
+func translateHeaderError(err error) error {
+	var he *echo.HTTPError
+	if errors.As(err, &he) {
+		return huma.NewError(he.Code, "Header authentication rejected")
+	}
+	return translateDomainError(err)
 }

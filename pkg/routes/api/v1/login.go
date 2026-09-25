@@ -25,6 +25,7 @@ import (
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/auth"
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 	"code.vikunja.io/api/pkg/routes/api/shared"
 	user2 "code.vikunja.io/api/pkg/user"
 
@@ -45,6 +46,9 @@ import (
 // @Failure 403 {object} models.Message "Invalid username or password."
 // @Router /login [post]
 func Login(c *echo.Context) (err error) {
+	if headerauth.HasIdentity(c) {
+		return headerauth.HandleAuth(c)
+	}
 	u := user2.Login{}
 	if err := c.Bind(&u); err != nil {
 		return c.JSON(http.StatusBadRequest, models.Message{Message: "Please provide a username and password."})

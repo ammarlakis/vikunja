@@ -42,6 +42,7 @@ type Connection struct {
 
 	mu            sync.RWMutex
 	userID        int64
+	headerUserID  int64
 	authenticated bool
 	subscriptions map[string]bool
 
@@ -180,6 +181,10 @@ func (c *Connection) handleAuth(ctx context.Context, token string) bool {
 		return false
 	}
 
+	if c.headerUserID != 0 && c.headerUserID != userID {
+		c.writeMessageDirect(ctx, OutgoingMessage{Error: "invalid_token"})
+		return false
+	}
 	c.mu.Lock()
 	c.userID = userID
 	c.authenticated = true

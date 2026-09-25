@@ -226,7 +226,7 @@ func NewLinkShareJWTAuthtoken(share *models.LinkSharing) (token string, err erro
 
 // HasAuthInContext reports whether the request carries credentials at all.
 func HasAuthInContext(c *echo.Context) bool {
-	if c.Get("api_token") != nil {
+	if c.Get("api_token") != nil || c.Get("api_user") != nil {
 		return true
 	}
 	_, is := c.Get("user").(*jwt.Token)

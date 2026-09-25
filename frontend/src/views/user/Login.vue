@@ -177,7 +177,12 @@ onBeforeMount(() => {
 	// after a successful login. Using redirectIfSaved() here would clear the saved
 	// route before the submit() handler gets a chance to use it.
 	if (authenticated.value) {
-		router.push({name: 'home'})
+		// Header bootstrap may finish after the guard already mounted this login redirect.
+		if (route.hash.startsWith(REDIRECT_HASH_PREFIX)) {
+			router.replace(route.hash.slice(REDIRECT_HASH_PREFIX.length))
+		} else {
+			router.push({name: 'home'})
+		}
 		return
 	}
 

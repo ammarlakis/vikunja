@@ -26,7 +26,7 @@ export const getToken = (): string | null => {
 	return savedToken
 }
 
-function getTokenPayload(token: string | null): Record<string, unknown> | null {
+export function getTokenPayload(token: string | null): Record<string, unknown> | null {
 	if (!token) return null
 	try {
 		const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')

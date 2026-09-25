@@ -83,6 +83,11 @@ const (
 	AuthOpenIDEnabled   Key = `auth.openid.enabled`
 	AuthOpenIDProviders Key = `auth.openid.providers`
 
+	AuthHeaderTrustedProxies  Key = `auth.header.trustedproxies`
+	AuthHeaderSubjectHeader   Key = `auth.header.subjectheader`
+	AuthHeaderAdminGroup      Key = `auth.header.admingroup`
+	AuthHeaderGroupsHeader    Key = `auth.header.groupsheader`
+	AuthHeaderUserLinks       Key = `auth.header.userlinks`
 	AuthHeaderEnabled         Key = `auth.header.enabled`
 	AuthHeaderCreateUser      Key = `auth.header.createuser`
 	AuthHeaderUsernameHeader  Key = `auth.header.usernameheader`
@@ -415,6 +420,11 @@ func initDefaultConfig() {
 	// Auth
 	AuthLocalEnabled.setDefault(true)
 	AuthOpenIDEnabled.setDefault(false)
+	AuthHeaderTrustedProxies.setDefault([]string{})
+	AuthHeaderSubjectHeader.setDefault("Al-User-Id")
+	AuthHeaderUserLinks.setDefault([]string{})
+	AuthHeaderAdminGroup.setDefault("")
+	AuthHeaderGroupsHeader.setDefault("Al-Groups")
 	AuthHeaderEnabled.setDefault(false)
 	AuthHeaderCreateUser.setDefault(true)
 	AuthHeaderUsernameHeader.setDefault("X-Forwarded-User")

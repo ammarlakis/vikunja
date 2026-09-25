@@ -271,9 +271,11 @@ func checkIfUserExists(s *xorm.Session, user *User) (err error) {
 
 // CreateUserWithRandomPassword creates a local account for an identity verified by a trusted gateway.
 func CreateUserWithRandomPassword(s *xorm.Session, u *User) (*User, error) {
- password, err := utils.CryptoRandomString(64)
- if err != nil { return nil, err }
- u.Issuer = IssuerLocal
- u.Password = password
- return CreateUser(s, u, CreateUserOptions{SkipEmailConfirm: true})
+	password, err := utils.CryptoRandomString(64)
+	if err != nil {
+		return nil, err
+	}
+	u.Issuer = IssuerLocal
+	u.Password = password
+	return CreateUser(s, u, CreateUserOptions{SkipEmailConfirm: true})
 }

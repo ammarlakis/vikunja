@@ -10,7 +10,7 @@ import type {RegisterUserRequestWritable} from '@/client/generated'
 import {registerViaInviteLink} from '@/client/inviteLink'
 import {parseValidationErrors} from '@/helpers/parseValidationErrors'
 import UserSettingsService from '@/services/userSettings'
-import {getToken, refreshToken, removeToken, saveToken} from '@/helpers/auth'
+import {getToken, getTokenPayload, refreshToken, removeToken, saveToken} from '@/helpers/auth'
 import {clearTaskCache} from '@/helpers/taskCache'
 import {useWebSocket} from '@/composables/useWebSocket'
 import {setModuleLoading} from '@/stores/helper'
@@ -102,6 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
 	const isLoading = ref(false)
 	const isLoadingGeneralSettings = ref(false)
 	const headerAuthAttempted = ref(false)
+	let headerAuthPromise: Promise<boolean> | null = null
 
 	const authUser = computed(() => {
 		return authenticated.value && (
@@ -125,6 +126,7 @@ export const useAuthStore = defineStore('auth', () => {
 
 	// Identity-bound caches survive same-user object replacements.
 	watch(identityKey, () => {
+		useWebSocket().disconnect()
 		clearTaskCache()
 		queryClient.clear()
 	}, {flush: 'sync'})
@@ -310,22 +312,43 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 	}
 
-	async function headerAuth() {
-		if (headerAuthAttempted.value || !configStore.auth.header.enabled) {
-			return false
-		}
+	async function headerAuth(): Promise<boolean> {
+		if (!configStore.auth.header.enabled) return false
+		if (headerAuthPromise) return headerAuthPromise
+		if (headerAuthAttempted.value) return false
 
 		headerAuthAttempted.value = true
-		const HTTP = HTTPFactory()
-		removeToken()
-
+		headerAuthPromise = (async () => {
+			const HTTP = HTTPFactory()
+			try {
+				// This request carries no stored JWT: only the gateway establishes the current identity.
+				const {data: current} = await HTTP.get('/user')
+				const payload = getTokenPayload(getToken())
+				if (
+					payload?.type !== AUTH_TYPES.USER || payload?.id !== current.id ||
+					typeof payload?.exp !== 'number' || payload.exp <= Date.now() / MILLISECONDS_A_SECOND
+				) {
+					removeToken()
+					setAuthenticated(false)
+					setUser(null)
+					currentSessionId.value = null
+					const response = await HTTP.post('/auth/header')
+					saveToken(response.data.token, true)
+				}
+				setLoggedInVia('header')
+				return true
+			} catch {
+				removeToken()
+				setAuthenticated(false)
+				setUser(null)
+				currentSessionId.value = null
+				return false
+			}
+		})()
 		try {
-			const response = await HTTP.post('/auth/header')
-			saveToken(response.data.token, true)
-			setLoggedInVia('header')
-			return true
-		} catch {
-			return false
+			return await headerAuthPromise
+		} finally {
+			headerAuthPromise = null
 		}
 	}
 
@@ -370,7 +393,8 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 
 		let jwt = getToken()
-		if (!jwt && await headerAuth()) {
+		if (configStore.auth.header.enabled && getTokenPayload(jwt)?.type !== AUTH_TYPES.LINK_SHARE) {
+			await headerAuth()
 			jwt = getToken()
 		}
 		let isAuthenticated = false
@@ -483,6 +507,14 @@ export const useAuthStore = defineStore('auth', () => {
 
 			return newUser
 		} catch (e) {
+			if (configStore.auth.header.enabled && e?.response?.status === 403) {
+				headerAuthAttempted.value = false
+				if (await headerAuth()) {
+					lastUserInfoRefresh.value = null
+					await checkAuth()
+					return info.value
+				}
+			}
 			if((e?.response?.status >= 400 && e?.response?.status < 500) ||
 				e?.response?.data?.message === 'missing, malformed, expired or otherwise invalid token provided') {
 				await logout()

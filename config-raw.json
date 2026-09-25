@@ -839,6 +839,11 @@
                     "key": "header",
                     "comment": "Header authentication lets Vikunja trust a reverse proxy which has already authenticated the user. Only enable this when Vikunja is not directly reachable without that proxy, because anyone who can send these headers can sign in as that user.",
                     "children": [
+                        {"key": "admingroup", "default_value": "", "comment": "Optional exact group name controlling the instance admin role. Membership grants admin; absence removes it on the next authenticated request. Empty preserves existing roles."},
+                        {"key": "groupsheader", "default_value": "Al-Groups", "comment": "Trusted comma-delimited group names, used by admingroup. Group names must not contain commas."},
+                        {"key": "trustedproxies", "default_value": "[]", "comment": "TCP peer CIDRs allowed to assert identities. Empty denies every header login. Forwarding headers never affect this check. Restrict backend access to these proxies."},
+                        {"key": "subjectheader", "default_value": "Al-User-Id", "comment": "Required immutable user identity header. Do not use a mutable email or username."},
+                        {"key": "userlinks", "default_value": "[]", "comment": "Explicit initial account links as immutable-subject=numeric-Vikunja-user-id. Existing accounts are never linked by email or username alone."},
                         {
                             "key": "enabled",
                             "default_value": "false",
@@ -847,17 +852,17 @@
                         {
                             "key": "createuser",
                             "default_value": "true",
-                            "comment": "Automatically create a Vikunja user when a trusted header user signs in for the first time. The username header is mandatory. The email header is required for creating a new user unless the username header itself contains a valid email address."
+                            "comment": "Automatically create an account for a new immutable header identity. Subject, username and email headers are mandatory. Existing usernames or emails require an explicit userlinks entry."
                         },
                         {
                             "key": "usernameheader",
                             "default_value": "X-Forwarded-User",
-                            "comment": "The trusted request header containing the authenticated username or stable user identifier."
+                            "comment": "The trusted request header containing the initial application username. Account identity is taken from subjectheader."
                         },
                         {
                             "key": "emailheader",
                             "default_value": "X-Forwarded-Email",
-                            "comment": "The trusted request header containing the authenticated user's email address. This is used when creating users and to keep existing header-auth users in sync."
+                            "comment": "The trusted request header containing the authenticated user's email address, required for provisioning. Existing account email addresses are preserved."
                         },
                         {
                             "key": "nameheader",

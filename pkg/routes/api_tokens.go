@@ -24,6 +24,7 @@ import (
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/auth"
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 	"code.vikunja.io/api/pkg/modules/humabridge"
 	"code.vikunja.io/api/pkg/modules/mcp"
 	"code.vikunja.io/api/pkg/web"
@@ -38,7 +39,7 @@ import (
 const ErrCodeInvalidToken = 11
 
 func SetupTokenMiddleware() echo.MiddlewareFunc {
-	return echojwt.WithConfig(echojwt.Config{
+	jwtMiddleware := echojwt.WithConfig(echojwt.Config{
 		SigningKey: []byte(config.ServiceSecret.GetString()),
 		Skipper: func(c *echo.Context) bool {
 			// Public routes (docs, spec, info, etc.) never need JWT even
@@ -66,6 +67,30 @@ func SetupTokenMiddleware() echo.MiddlewareFunc {
 			return nil
 		},
 	})
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if unauthenticatedAPIPaths[c.Path()] || !headerauth.HasIdentity(c) {
+				return jwtMiddleware(next)(c)
+			}
+			u, err := headerauth.Authenticate(c)
+			if err != nil {
+				return err
+			}
+			if len(c.Request().Header.Values("Authorization")) == 0 {
+				c.Set("api_user", u)
+				return next(c)
+			}
+			// Retain API-token scopes and reject credentials belonging to another gateway user.
+			return jwtMiddleware(func(c *echo.Context) error {
+				a, err := auth.GetAuthFromClaims(c)
+				if err != nil || a.GetID() != u.ID {
+					return echo.NewHTTPError(http.StatusForbidden, "Token identity does not match the gateway user.")
+				}
+				c.Set("api_user", u)
+				return next(c)
+			})(c)
+		}
+	}
 }
 
 // An autopatch leg inherits the client PATCH's authorisation only as long as it
