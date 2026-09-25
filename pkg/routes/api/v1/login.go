@@ -49,6 +49,9 @@ func Login(c *echo.Context) (err error) {
 	if headerauth.HasIdentity(c) {
 		return headerauth.HandleAuth(c)
 	}
+	if !config.AuthLocalEnabled.GetBool() && !config.AuthLdapEnabled.GetBool() {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Header authentication required.")
+	}
 	u := user2.Login{}
 	if err := c.Bind(&u); err != nil {
 		return c.JSON(http.StatusBadRequest, models.Message{Message: "Please provide a username and password."})

@@ -153,6 +153,8 @@ func TestHeaderAuthMobileLoginAndAPI(t *testing.T) {
 	routes.RegisterRoutes(e)
 	for _, version := range []string{"v1", "v2"} {
 		t.Run(version, func(t *testing.T) {
+			denied := humaRequest(t, e, http.MethodPost, "/api/"+version+"/login", `{"username":"user1","password":"12345678"}`, "", "application/json")
+			assert.Equal(t, http.StatusUnauthorized, denied.Code, denied.Body.String())
 			rec := headerRequest(e, "POST", "/api/"+version+"/login", "first", "user1", "user1@example.com", "", nil)
 			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 			var login struct {

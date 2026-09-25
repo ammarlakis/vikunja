@@ -41,6 +41,10 @@ def main():
     run("go", "build", "-trimpath", "-tags", "osusergo netgo", "-ldflags",
         '-s -w -linkmode external -extldflags "-static" -X code.vikunja.io/api/pkg/version.Version=' + version,
         "-o", str(binary), env=dict(os.environ, CGO_ENABLED="1", GOOS="linux", GOARCH="amd64"))
+    current_revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"], text=True).strip()
+    if current_revision != revision or dirty:
+        raise SystemExit("Source changed during the build; discard this output and rebuild")
     # The runtime is the same scratch + CA-bundle layout used by the upstream Dockerfile.
     layer = io.BytesIO()
     with tarfile.open(fileobj=layer, mode="w", format=tarfile.PAX_FORMAT) as archive:
@@ -95,7 +99,9 @@ def main():
     (args.output / "index.json").write_text(json.dumps({"schemaVersion": 2, "manifests": [manifest]}))
     (args.output / "oci-layout").write_text('{"imageLayoutVersion":"1.0.0"}')
     (args.output / "build.json").write_text(json.dumps({"revision": revision, "version": version,
-        "manifest": manifest["digest"], "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest()}, indent=2))
+        "manifest": manifest["digest"], "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
+        "go_version": subprocess.check_output(["go", "version"], text=True).strip(),
+        "ca_bundle_sha256": hashlib.sha256(args.ca_bundle.read_bytes()).hexdigest()}, indent=2))
     print(json.dumps({"output": str(args.output), "version": version, "digest": manifest["digest"]}))
 
 

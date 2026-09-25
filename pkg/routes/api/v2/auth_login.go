@@ -99,6 +99,9 @@ func authLogin(ctx context.Context, in *struct{ Body user.Login }) (*authTokenBo
 	if ec := humabridge.EchoContextFrom(ctx); ec != nil && headerauth.HasIdentity(ec) {
 		u, err = headerauth.Authenticate(ec)
 	} else {
+		if !config.AuthLocalEnabled.GetBool() && !config.AuthLdapEnabled.GetBool() {
+			return nil, huma.Error401Unauthorized("Header authentication required.")
+		}
 		u, err = shared.AuthenticateUserCredentials(ctx, &in.Body)
 	}
 	if err != nil {
