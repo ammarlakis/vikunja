@@ -119,9 +119,12 @@ export const useConfigStore = defineStore('config', () => {
 		return state.enabledProFeatures?.includes(name) ?? false
 	}
 
-	async function update(): Promise<boolean> {
+	async function update(options?: {redirect: 'error'}): Promise<boolean> {
 		const HTTP = HTTPFactory()
-		const {data: config} = await HTTP.get('info')
+		const {data: config} = await HTTP.get('info', options ? {
+			adapter: 'fetch',
+			fetchOptions: {redirect: options.redirect, referrerPolicy: 'no-referrer', cache: 'no-store'},
+		} : undefined)
 
 		if (typeof config.version === 'undefined') {
 			throw new InvalidApiUrlProvidedError()

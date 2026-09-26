@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 	"code.vikunja.io/api/pkg/modules/auth/oauth2server"
 	"code.vikunja.io/api/pkg/modules/humabridge"
 	"code.vikunja.io/api/pkg/user"
@@ -75,7 +76,11 @@ func oauthToken(ctx context.Context, in *struct {
 	Body oauth2server.TokenRequest `contentType:"application/x-www-form-urlencoded"`
 }) (*oauthTokenBody, error) {
 	deviceInfo, ipAddress := requestClientInfo(ctx)
-	resp, err := oauth2server.ExchangeToken(ctx, &in.Body, deviceInfo, ipAddress)
+	expectedUserID, err := headerauth.TokenUserID(humabridge.EchoContextFrom(ctx))
+	if err != nil {
+		return nil, translateHeaderError(err)
+	}
+	resp, err := oauth2server.ExchangeToken(ctx, &in.Body, deviceInfo, ipAddress, expectedUserID)
 	if err != nil {
 		return nil, translateDomainError(err)
 	}

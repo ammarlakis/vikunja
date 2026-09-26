@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteLocation } from 'vue-router'
+import {getFullBaseUrl} from '@/helpers/getFullBaseUrl'
 import {saveLastVisited} from '@/helpers/saveLastVisited'
 
 import {getProjectViewId} from '@/helpers/projectView'
@@ -25,7 +26,7 @@ import UpcomingTasks from '@/views/tasks/ShowTasks.vue'
 import NotFoundComponent from '@/views/404.vue'
 
 const router = createRouter({
-	history: createWebHistory(import.meta.env.BASE_URL),
+	history: createWebHistory(getFullBaseUrl()),
 	scrollBehavior(to, from, savedPosition) {
 		// If the user is using their forward/backward keys to navigate, we want to restore the scroll view
 		if (savedPosition) {

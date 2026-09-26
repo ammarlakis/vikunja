@@ -22,6 +22,7 @@ import (
 
 	"code.vikunja.io/api/pkg/config"
 	"code.vikunja.io/api/pkg/modules/auth"
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 	"code.vikunja.io/api/pkg/modules/humabridge"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -55,7 +56,11 @@ func authRefreshToken(ctx context.Context, _ *struct{}) (*authTokenBody, error) 
 		return nil, huma.Error401Unauthorized("No refresh token provided.")
 	}
 
-	result, err := auth.RefreshSession(cookie.Value)
+	expectedUserID, err := headerauth.TokenUserID(ec)
+	if err != nil {
+		return nil, translateHeaderError(err)
+	}
+	result, err := auth.RefreshSession(cookie.Value, expectedUserID)
 	if err != nil {
 		if auth.IsUnusableRefreshToken(err) {
 			auth.ClearRefreshTokenCookie(ec)

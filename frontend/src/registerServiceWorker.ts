@@ -1,8 +1,9 @@
 import {register} from 'register-service-worker'
 
-import {getFullBaseUrl} from './helpers/getFullBaseUrl'
+import {getFullBaseUrl, getGatewayBaseUrl} from './helpers/getFullBaseUrl'
 
-if (import.meta.env.PROD) {
+// Credential URLs are revocable device credentials; keep their requests on the network.
+if (import.meta.env.PROD && !getGatewayBaseUrl()) {
 	register(getFullBaseUrl() + 'sw.js', {
 		ready() {
 			console.log('App is being served from cache by a service worker.')

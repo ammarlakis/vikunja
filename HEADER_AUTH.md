@@ -38,8 +38,11 @@ restoring a saved session; identity changes clear caches and close old sockets.
 Validation includes peer/header rejection, account mapping and provisioning,
 API scope and identity checks, admin downgrade, real WebSocket authentication,
 browser account switching, private-project isolation, and the native client's
-browser authorization and PKCE token exchange. Android device callback handling
-and gateway secret-path rewriting still require deployment/client validation.
+browser authorization and PKCE token exchange. The frontend retains a gateway `/<secret>/` base for assets, routing, API calls,
+and native-client browser authorization. Existing saved API addresses cannot override that base.
+Device URLs clear cached credential entries and leave any existing service worker before login;
+service-worker registration and Sentry telemetry are disabled for these sessions.
+Physical Android callback handling still requires device validation.
 
 Build a pinned amd64 scratch-style OCI image with SQLite support and embedded
 frontend assets, without a Docker daemon:

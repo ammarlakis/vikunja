@@ -108,7 +108,7 @@ function getBuildConfig(env: Record<string, string>) {
 	const workboxVersion = JSON.parse(readFileSync(workboxPkgPath, 'utf-8')).version
 
 	return {
-		base: env.VIKUNJA_FRONTEND_BASE,
+		base: env.VIKUNJA_FRONTEND_BASE || './',
 		define: {
 			__WORKBOX_VERSION__: JSON.stringify(`v${workboxVersion}`),
 		},

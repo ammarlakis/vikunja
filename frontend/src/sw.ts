@@ -11,6 +11,12 @@ workbox.setConfig({
 	modulePathPrefix: `${fullBaseUrl}workbox-${workboxVersion}`,
 })
 
+// Credential URLs must reach the gateway even when an older root page installed this worker.
+workbox.routing.registerRoute(
+	({url, sameOrigin}: {url: URL; sameOrigin: boolean}) => sameOrigin && /^\/al_[A-Za-z0-9_-]{43}(?:\/|$)/.test(url.pathname),
+	new workbox.strategies.NetworkOnly({fetchOptions: {cache: 'no-store'}}),
+)
+
 import { precacheAndRoute } from 'workbox-precaching'
 precacheAndRoute(self.__WB_MANIFEST)
 
@@ -65,4 +71,3 @@ workbox.core.clientsClaim()
 // The precaching code provided by Workbox.
 self.__precacheManifest = [].concat(self.__precacheManifest || [])
 workbox.precaching.precacheAndRoute(self.__precacheManifest, {})
-

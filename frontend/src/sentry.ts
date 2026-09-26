@@ -2,6 +2,7 @@ import type {App} from 'vue'
 import type {Router} from 'vue-router'
 import {shouldDropEvent, stripNavigationFragment} from './helpers/sentryFilters'
 import {VERSION} from './version.json'
+import {usesGatewayCredential} from './helpers/gatewayApi'
 
 function withoutFragment(url: string) {
 	return url.split('#')[0]
@@ -9,6 +10,8 @@ function withoutFragment(url: string) {
 
 export default async function setupSentry(app: App, router: Router) {
 	const Sentry = await import('@sentry/vue')
+	// A custom-server switch may have disabled telemetry while this import was pending.
+	if (!window.SENTRY_ENABLED || usesGatewayCredential()) return
 
 	Sentry.init({
 		app,

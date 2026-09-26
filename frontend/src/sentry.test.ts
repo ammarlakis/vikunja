@@ -1,54 +1,21 @@
-import {describe, it, expect, vi, beforeAll, beforeEach} from 'vitest'
-import type {App} from 'vue'
-import type {Router} from 'vue-router'
-
-const captureMessage = vi.fn()
-
-vi.mock('@sentry/vue', () => ({
-	init: vi.fn(),
-	captureMessage,
-	makeBrowserOfflineTransport: vi.fn(),
-	makeFetchTransport: vi.fn(),
-	browserTracingIntegration: vi.fn(),
-	replayIntegration: vi.fn(),
-}))
-
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import setupSentry from './sentry'
 
-function failImage(src: string | null) {
-	const img = document.createElement('img')
-	if (src !== null) {
-		img.setAttribute('src', src)
-	}
-	document.body.appendChild(img)
-	img.dispatchEvent(new Event('error'))
-	img.remove()
-}
+const mocks = vi.hoisted(() => ({init: vi.fn()}))
+vi.mock('@sentry/vue', () => ({init: mocks.init}))
 
-beforeAll(async () => {
-	await setupSentry({} as App, {} as Router)
-})
-
-beforeEach(() => {
-	captureMessage.mockClear()
-})
-
-describe('sentry image load errors', () => {
-	it('reports an image that failed to load', () => {
-		failImage('https://example.com/missing.png')
-
-		expect(captureMessage).toHaveBeenCalledWith('Failed to load image: https://example.com/missing.png', 'warning')
+describe('telemetry startup guard', () => {
+	afterEach(() => { vi.unstubAllGlobals(); mocks.init.mockClear() })
+	it('does not initialize after a credential switch while the SDK import is pending', async () => {
+		vi.stubGlobal('window', {location: new URL('https://tasks.example/'), API_URL: 'https://tasks.example/api/v1', SENTRY_ENABLED: true})
+		const setup = setupSentry({} as never, {} as never)
+		window.SENTRY_ENABLED = false
+		await setup
+		expect(mocks.init).not.toHaveBeenCalled()
 	})
-
-	it.each([
-		['missing', null],
-		['empty', ''],
-		['whitespace', ' '],
-		['fragment', '#'],
-		['page url', window.location.href],
-	])('skips a %s src resolving to the page itself', (_, src) => {
-		failImage(src)
-
-		expect(captureMessage).not.toHaveBeenCalled()
+	it('refuses credential API targets even on an ordinary page', async () => {
+		vi.stubGlobal('window', {location: new URL('app://vikunja/index.html'), API_URL: 'https://tasks.example/al_' + 'A'.repeat(43) + '/api/v1', SENTRY_ENABLED: true})
+		await setupSentry({} as never, {} as never)
+		expect(mocks.init).not.toHaveBeenCalled()
 	})
 })

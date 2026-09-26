@@ -1,12 +1,28 @@
-import {describe, it, expect, beforeEach} from 'vitest'
+import {describe, it, expect, beforeEach, vi} from 'vitest'
 import {setActivePinia, createPinia} from 'pinia'
 import {computed} from 'vue'
 
 import {useConfigStore} from './config'
 
+const mocks = vi.hoisted(() => ({get: vi.fn()}))
+vi.mock('@/helpers/fetcher', async importOriginal => ({
+	...await importOriginal<typeof import('@/helpers/fetcher')>(),
+	HTTPFactory: () => ({get: mocks.get}),
+}))
+
 describe('config store', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia())
+		mocks.get.mockReset()
+	})
+
+	it('passes redirect rejection to the actual fetch transport for credential validation', async () => {
+		mocks.get.mockResolvedValue({data: {version: 'test'}})
+		await useConfigStore().update({redirect: 'error'})
+		expect(mocks.get).toHaveBeenCalledExactlyOnceWith('info', {
+			adapter: 'fetch',
+			fetchOptions: {redirect: 'error', referrerPolicy: 'no-referrer', cache: 'no-store'},
+		})
 	})
 
 	describe('isProFeatureEnabled', () => {

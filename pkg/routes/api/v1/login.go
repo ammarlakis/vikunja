@@ -139,7 +139,11 @@ func RefreshToken(c *echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusUnauthorized, "No refresh token provided.")
 	}
 
-	result, err := auth.RefreshSession(cookie.Value)
+	expectedUserID, err := headerauth.TokenUserID(c)
+	if err != nil {
+		return err
+	}
+	result, err := auth.RefreshSession(cookie.Value, expectedUserID)
 	if err != nil {
 		if auth.IsUnusableRefreshToken(err) {
 			auth.ClearRefreshTokenCookie(c)

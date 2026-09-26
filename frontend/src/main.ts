@@ -7,6 +7,7 @@ import router from './router'
 import App from './App.vue'
 import {error, success} from './message'
 import {configureApiClient} from './client/http'
+import {restoreSavedApiUrl, usesGatewayCredential} from './helpers/gatewayApi'
 import {queryClient} from './client/queryClient'
 
 // Notifications
@@ -28,11 +29,8 @@ declare global {
 	}
 }
 
-// Check if we have an api url in local storage and use it if that's the case
-const apiUrlFromStorage = localStorage.getItem('API_URL')
-if (apiUrlFromStorage !== null) {
-	window.API_URL = apiUrlFromStorage
-}
+// Restore ordinary and native server settings without reusing a browser credential URL.
+restoreSavedApiUrl()
 
 // Make sure the api url does not contain a / at the end
 if (window.API_URL.endsWith('/')) {
@@ -66,7 +64,7 @@ const browserLanguage = getBrowserLanguage()
 setLanguage(browserLanguage).then(() => {
 	const app = createApp(App)
 
-	if (window.SENTRY_ENABLED) {
+	if (window.SENTRY_ENABLED && !usesGatewayCredential()) {
 		try {
 			import('./sentry').then(sentry => sentry.default(app, router))
 		} catch (e) {

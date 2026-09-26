@@ -27,6 +27,7 @@ import (
 	"code.vikunja.io/api/pkg/log"
 	"code.vikunja.io/api/pkg/models"
 	"code.vikunja.io/api/pkg/modules/auth"
+	headerauth "code.vikunja.io/api/pkg/modules/auth/header"
 	"code.vikunja.io/api/pkg/user"
 
 	"github.com/labstack/echo/v5"
@@ -71,7 +72,11 @@ func HandleToken(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 	}
 
-	resp, err := ExchangeToken(c.Request().Context(), &req, c.Request().UserAgent(), c.RealIP())
+	expectedUserID, err := headerauth.TokenUserID(c)
+	if err != nil {
+		return err
+	}
+	resp, err := ExchangeToken(c.Request().Context(), &req, c.Request().UserAgent(), c.RealIP(), expectedUserID)
 	if err != nil {
 		return err
 	}
@@ -83,13 +88,14 @@ func HandleToken(c *echo.Context) error {
 // ExchangeToken runs the grant-type dispatch and token issuance for the OAuth
 // token endpoint, independent of the HTTP layer. Callers own request binding and
 // the Cache-Control: no-store response header. deviceInfo/ipAddress are recorded
-// on the session created for the authorization_code grant.
-func ExchangeToken(ctx context.Context, req *TokenRequest, deviceInfo, ipAddress string) (*TokenResponse, error) {
+// on the session created for the authorization_code grant. expectedUserID is the
+// authenticated gateway user, or zero when header authentication is disabled.
+func ExchangeToken(ctx context.Context, req *TokenRequest, deviceInfo, ipAddress string, expectedUserID int64) (*TokenResponse, error) {
 	switch req.GrantType {
 	case "authorization_code":
-		return exchangeAuthorizationCode(ctx, req, deviceInfo, ipAddress)
+		return exchangeAuthorizationCode(ctx, req, deviceInfo, ipAddress, expectedUserID)
 	case "refresh_token":
-		return exchangeRefreshToken(req)
+		return exchangeRefreshToken(req, expectedUserID)
 	default:
 		return nil, &models.ErrOAuthInvalidGrantType{}
 	}
@@ -117,10 +123,17 @@ func consumeAuthorizationCode(code string) (*models.OAuthCode, error) {
 	return oauthCode, nil
 }
 
-func exchangeAuthorizationCode(ctx context.Context, req *TokenRequest, deviceInfo, ipAddress string) (*TokenResponse, error) {
+func exchangeAuthorizationCode(ctx context.Context, req *TokenRequest, deviceInfo, ipAddress string, expectedUserID int64) (*TokenResponse, error) {
 	oauthCode, err := consumeAuthorizationCode(req.Code)
 	if err != nil {
 		return nil, err
+	}
+
+	// Preserve one-use code consumption, but never issue a session for another
+	// gateway user even when the client presents a valid PKCE verifier.
+	if (config.AuthHeaderEnabled.GetBool() && expectedUserID <= 0) ||
+		(expectedUserID > 0 && oauthCode.UserID != expectedUserID) {
+		return nil, &models.ErrOAuthCodeInvalid{}
 	}
 
 	// Validate client_id matches
@@ -179,8 +192,8 @@ func exchangeAuthorizationCode(ctx context.Context, req *TokenRequest, deviceInf
 	}, nil
 }
 
-func exchangeRefreshToken(req *TokenRequest) (*TokenResponse, error) {
-	result, err := auth.RefreshSession(req.RefreshToken)
+func exchangeRefreshToken(req *TokenRequest, expectedUserID int64) (*TokenResponse, error) {
+	result, err := auth.RefreshSession(req.RefreshToken, expectedUserID)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,8 @@
 import {useConfigStore} from '@/stores/config'
 import {configureApiClient} from '@/client/http'
 import {queryClient} from '@/client/queryClient'
+import {getGatewayBaseUrl} from './getFullBaseUrl'
+import {disableGatewayTelemetry, hasGatewayCredential, preservesGatewayCredential, saveApiUrl} from './gatewayApi'
 
 const API_DEFAULT_PORT = '3456'
 const API_PATH_SUFFIX = '/api/v1'
@@ -46,24 +48,68 @@ export const checkAndSetApiUrl = (pUrl: string | undefined | null): Promise<stri
 		throw new NoApiUrlProvidedError()
 	}
 
-	if (url.startsWith('/')) {
-		url = window.location.host + url
+	const suppliedUrl = url
+	const protocol = /^https?:$/.test(window.location.protocol) ? window.location.protocol : 'https:'
+	if (url.startsWith('//')) {
+		url = protocol + url
+	} else if (url.startsWith('/')) {
+		url = new URL(url, window.location.href).href
+	} else if (!/^https?:\/\//i.test(url)) {
+		if (url.includes('://')) throw new InvalidApiUrlProvidedError()
+		url = `${protocol}//${url}`
 	}
 
-	// Check if the url has a http prefix
-	if (
-		!url.startsWith('http://') &&
-		!url.startsWith('https://')
-	) {
-		url = `${window.location.protocol}//${url}`
-	}
-	
 	let urlToCheck: URL
 	try {
 		urlToCheck = new URL(url)
+		if (!/^https?:$/.test(urlToCheck.protocol)) throw new InvalidApiUrlProvidedError()
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	} catch (e) {
 		throw new InvalidApiUrlProvidedError()
+	}
+
+	if (!preservesGatewayCredential(suppliedUrl, urlToCheck.pathname)) {
+		throw new InvalidApiUrlProvidedError()
+	}
+
+	const prefix = getGatewayBaseUrl()
+	if (prefix) {
+		const expected = new URL(prefix + 'api/v1', window.location.origin)
+		if (
+			urlToCheck.origin !== expected.origin ||
+			urlToCheck.pathname.replace(/\/$/, '') !== expected.pathname ||
+			urlToCheck.username || urlToCheck.password || urlToCheck.search || urlToCheck.hash
+		) {
+			throw new InvalidApiUrlProvidedError()
+		}
+		urlToCheck = expected
+	}
+
+	// Credential targets get one exact request: never probe another port or follow a redirect.
+	if (prefix || hasGatewayCredential(urlToCheck.href)) {
+		if (urlToCheck.username || urlToCheck.password || urlToCheck.search || urlToCheck.hash) {
+			throw new InvalidApiUrlProvidedError()
+		}
+		if (!hasApiPath(urlToCheck.pathname)) {
+			urlToCheck.pathname = joinPath(urlToCheck.pathname, API_PATH_SUFFIX)
+		}
+		const oldUrl = window.API_URL
+		return disableGatewayTelemetry().then(() => {
+			window.API_URL = urlToCheck.href.replace(/\/$/, '')
+			return useConfigStore().update({redirect: 'error'})
+		}).then(success => {
+			if (!success) throw new InvalidApiUrlProvidedError()
+			if (window.API_URL !== oldUrl) {
+				configureApiClient()
+				queryClient.clear()
+			}
+			saveApiUrl(window.API_URL)
+			return window.API_URL
+		}).catch(() => {
+			window.API_URL = oldUrl
+			// Axios errors retain the complete credential URL in their message/config.
+			throw new InvalidApiUrlProvidedError()
+		})
 	}
 
 	const origPathname = urlToCheck.pathname
@@ -124,7 +170,7 @@ export const checkAndSetApiUrl = (pUrl: string | undefined | null): Promise<stri
 					configureApiClient()
 					queryClient.clear()
 				}
-				localStorage.setItem('API_URL', window.API_URL)
+				saveApiUrl(window.API_URL)
 				return window.API_URL
 			}
 

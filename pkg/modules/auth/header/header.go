@@ -42,6 +42,22 @@ func HandleAuth(c *echo.Context) error {
 	return auth.NewUserAuthTokenResponse(u, c, false, nil)
 }
 
+// TokenUserID binds native token exchange and refresh to the authenticated
+// gateway identity. Zero means header authentication is disabled.
+func TokenUserID(c *echo.Context) (int64, error) {
+	if !config.AuthHeaderEnabled.GetBool() {
+		return 0, nil
+	}
+	if c == nil {
+		return 0, echo.NewHTTPError(http.StatusUnauthorized, "Missing request context.")
+	}
+	u, err := Authenticate(c)
+	if err != nil {
+		return 0, err
+	}
+	return u.ID, nil
+}
+
 // HasIdentity also detects partial headers so malformed gateway requests fail closed.
 func HasIdentity(c *echo.Context) bool {
 	if !config.AuthHeaderEnabled.GetBool() {

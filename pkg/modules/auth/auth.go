@@ -368,7 +368,12 @@ type RefreshResult struct {
 //
 // On user status errors (disabled/locked), the session is deleted before
 // returning the error so the caller can handle cleanup (e.g. clearing cookies).
-func RefreshSession(rawRefreshToken string) (*RefreshResult, error) {
+// expectedUserID must be the authenticated gateway user in header mode; zero
+// retains native token-only authentication when header mode is disabled.
+func RefreshSession(rawRefreshToken string, expectedUserID int64) (*RefreshResult, error) {
+	if config.AuthHeaderEnabled.GetBool() && expectedUserID <= 0 {
+		return nil, &models.ErrInvalidRefreshToken{}
+	}
 	s := db.NewSession()
 	defer s.Close()
 
@@ -379,6 +384,12 @@ func RefreshSession(rawRefreshToken string) (*RefreshResult, error) {
 			return nil, &models.ErrInvalidRefreshToken{}
 		}
 		return nil, err
+	}
+
+	// Reject another user's credential before rotating or otherwise modifying it.
+	if expectedUserID > 0 && session.UserID != expectedUserID {
+		_ = s.Rollback()
+		return nil, &models.ErrInvalidRefreshToken{}
 	}
 
 	maxAge := time.Duration(config.ServiceJWTTTL.GetInt64()) * time.Second
